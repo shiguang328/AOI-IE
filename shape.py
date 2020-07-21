@@ -37,17 +37,14 @@ class Shape(object):
     point_size = 8
     scale = 1.0
 
-    def __init__(self, name='', data_obj=None, line_color=None, shape_type=None,
-                 flags=None, group_id=None):
-        # self.data_obj = data_obj  # 传入pattern中具有坐标元素的对象的引用，如mask，template，part等对象，这些对象必须有x,y,w,h参数
+    def __init__(self, name='', data_obj=None, line_color=None, shape_type=None):
         self.name = name
-        self.group_id = group_id
+        # self.group_id = group_id
         self.points = []
         self.fill = False
         self.selected = False
         self.shape_type = shape_type
-        self.flags = flags
-        self.other_data = {}
+        # self.flags = flags
 
         self._highlightIndex = None
         self._highlightMode = self.NEAR_VERTEX
@@ -56,8 +53,6 @@ class Shape(object):
             self.MOVE_VERTEX: (1.5, self.P_SQUARE),
         }
 
-        # self._closed = False
-
         if line_color is not None:
             # Override the class line_color attribute
             # with an object attribute. Currently this
@@ -65,13 +60,6 @@ class Shape(object):
             self.line_color = line_color
 
         self.shape_type = shape_type
-
-        # 如果data_obj有数据，则获取其坐标
-        # if data_obj:
-        #     x, y, w, h = data_obj.x, data_obj.y, data_obj.w, data_obj.h
-        #     p1 = QtCore.QPoint(x, y)
-        #     p2 = QtCore.QPoint(x+w, y+h)
-        #     self.points.extend([p1, p2])
 
     @property
     def shape_type(self):
@@ -85,19 +73,11 @@ class Shape(object):
             raise ValueError('Unexpected shape_type: {}'.format(value))
         self._shape_type = value
 
-    # def close(self):
-    #     self._closed = True
-
     def addPoint(self, point):
         if self.points and point == self.points[0]:
-            # self.close()
             pass
         else:
             self.points.append(point)
-
-    def canAddPoint(self):
-        # return self.shape_type in ['polygon', 'linestrip']
-        return False
 
     def popPoint(self):
         if self.points:
@@ -109,12 +89,6 @@ class Shape(object):
 
     def removePoint(self, i):
         self.points.pop(i)
-
-    # def isClosed(self):
-    #     return self._closed
-
-    # def setOpen(self):
-    #     self._closed = False
 
     def getRectFromLine(self, pt1, pt2):
         x1, y1 = pt1.x(), pt1.y()
@@ -211,20 +185,10 @@ class Shape(object):
         return rectangle
 
     def makePath(self):
-        # if self.shape_type == 'rectangle':
         path = QtGui.QPainterPath()
         if len(self.points) == 2:
             rectangle = self.getRectFromLine(*self.points)
             path.addRect(rectangle)
-        # elif self.shape_type == "circle":
-        #     path = QtGui.QPainterPath()
-        #     if len(self.points) == 2:
-        #         rectangle = self.getCircleRectFromLine(self.points)
-        #         path.addEllipse(rectangle)
-        # else:
-        #     path = QtGui.QPainterPath(self.points[0])
-        #     for p in self.points[1:]:
-        #         path.lineTo(p)
         return path
 
     def boundingRect(self):

@@ -30,7 +30,7 @@ class Canvas(QtWidgets.QWidget):
     newShape = QtCore.Signal(str)  # 一个形状绘制完成后触发
     deleteShape = QtCore.Signal(str, str)  # 删除形状,参数：classes, name
     selectionChanged = QtCore.Signal(list)  # EDIT阶段，鼠标选中的Shape发生变化后触发，CREATE阶段不触发
-    shapeMoved = QtCore.Signal()
+    shapeMoved = QtCore.Signal(str, str)  # shape被拖动或者shape的角点被拖动后，左键释放后触发
     drawingPolygon = QtCore.Signal(bool)
     edgeSelected = QtCore.Signal(bool, object)
     vertexSelected = QtCore.Signal(bool)
@@ -246,6 +246,8 @@ class Canvas(QtWidgets.QWidget):
         self.vertexSelected.emit(self.hVertex is not None)
 
     def mousePressEvent(self, ev):
+        if not self.pixmap:
+            return
         if QT5:
             pos = self.transformPos(ev.localPos())
         else:
@@ -293,7 +295,7 @@ class Canvas(QtWidgets.QWidget):
             #     self.repaint()
         elif ev.button() == QtCore.Qt.LeftButton and self.selectedShapes:
             self.overrideCursor(CURSOR_GRAB)
-
+        # print(self.hShape)
         if self.movingShape and self.hShape:
             # index = self.shapes.index(self.hShape)
             # if (self.shapesBackups[-1][index].points !=
@@ -302,6 +304,7 @@ class Canvas(QtWidgets.QWidget):
             #     self.shapeMoved.emit()
 
             self.movingShape = False
+            self.shapeMoved.emit(self.hShape.shape_type, self.hShape.name)
 
     def setHiding(self, enable=True):
         self._hideBackround = self.hideBackround if enable else False
@@ -309,16 +312,13 @@ class Canvas(QtWidgets.QWidget):
     def canCloseShape(self):
         return self.drawing() and self.current and len(self.current) > 2
 
-    def selectShapes(self, shapes):
-        self.setHiding()
-        self.selectionChanged.emit(shapes)
-        self.update()
-
     def selectShapePoint(self, point, multiple_selection_mode):
         """Select the first shape created which contains this point."""
         if self.selectedVertex():  # A vertex is marked for selection.
             index, shape = self.hVertex, self.hShape
             shape.highlightVertex(index, shape.MOVE_VERTEX)
+            
+            self.selectionChanged.emit([shape])
         else:
             for shape in reversed(self.shapes):
                 if self.isVisible(shape) and shape.containsPoint(point):
@@ -331,7 +331,7 @@ class Canvas(QtWidgets.QWidget):
                     else:
                         self.selectionChanged.emit([shape])
                     return
-        self.deSelectShape()
+        # self.deSelectShape()
 
     def calculateOffsets(self, shape, point):
         rect = shape.boundingRect()

@@ -1,11 +1,7 @@
 ''' 程式定义文件。
     程式是人工制作的PCB板错漏反检测的基础数据，其实体是一个文件夹，该文件夹中包含了以下内容：
     1. image.jpg： 建立程式时候采集的原始图片
-    2. template_1.jpg: 模板1的图片（若有）
-    3. template_2.jpg: 模板2的图片（若有）
-    4. mask_1.jpg: Mask图片（若有）
-    5. mask_2.jpg: Mask图片（若有）
-    6. info.json： 检测参数文件，包含PCB板ROI坐标、模板坐标、Mask坐标；
+    2. info.json： 检测参数文件，包含PCB板ROI坐标、模板坐标、Mask坐标；
        及元器件序号、类别、坐标、检查项、阈值等信息
 '''
 
@@ -32,8 +28,8 @@ class Pattern:
         self.pcbCVImage = None  # 根据PCB坐标裁剪出来的图片
         
         self.ax_pcbs = []  # PCB_ROI坐标集，格式 [x, y, w, h]
-        self.templates = []  # 模板坐标集，格式 [[x, y, w, h]]
-        self.masks = []  # Mask坐标集，格式 [[x, y, w, h]], 注意：Mask坐标是相对于PCB_ROI的坐标
+        self.templates = []  # 模板
+        self.masks = []  # Mask, 注意：Mask坐标是相对于PCB_ROI的坐标
         self.parts = []
 
         self.dirty = False  # pattern修改后变成True

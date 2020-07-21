@@ -153,6 +153,8 @@ class MainWin(QtWidgets.QMainWindow):
         self.box.exec_()
 
     def closeEvent(self, event):
+        # if self.patternWidget.pattern and self.patternWidget.pattern.dirty:
+        #     QtWidgets.QMessageBox.warning(self, '警告', '程式未保存，确定要退出吗？')
         self.cameraThread.exit_thread()
         self.cameraThread.wait(1000)
         self.cam.release()

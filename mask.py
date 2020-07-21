@@ -51,6 +51,13 @@ class Mask:
                              QtGui.QImage.Format_RGB888)
         self.pixmap = QtGui.QPixmap.fromImage(image)
 
+    def coordinates_changed(self, x, y, w, h, cvImage):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.load_image(cvImage)
+
     def to_json(self):
         data = OrderedDict({
             'x': self.x,

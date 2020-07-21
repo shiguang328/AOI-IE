@@ -6,10 +6,9 @@ from mask import Mask
 
 class MaskWidget(QtWidgets.QWidget, Ui_Form):
 
-    # getMaskSignal = QtCore.pyqtSignal(QtWidgets.QLabel, name='getMaskSignal')  # 获取模板信号，参数为需要显示的控件
-    # newMaskShape = QtCore.pyqtSignal(str, str, name='newMaskShape')  # 请求创建新的mask
     savePatternSignal = QtCore.pyqtSignal(name='savePatternSignal')  # 保存pattern
     selectedChanged = QtCore.pyqtSignal(str, str, name='selectedChanged')
+    parameterChanged = QtCore.pyqtSignal(name='parameterChanged')  # 任何程式相关的参数变化后都必须触发该信号告知父类pattern已被修改
 
     def __init__(self):
         ''' Maks页面 '''
@@ -25,9 +24,6 @@ class MaskWidget(QtWidgets.QWidget, Ui_Form):
         self.saveButton.clicked.connect(self.savePatternSignal)
         self.listWidget.currentRowChanged.connect(self.item_changed)
 
-    # def get_circle_button_clicked(self):
-        # self.getMaskSignal.emit(self.previewLabel)
-
     def set_mask(self, mask):
         self.currentMask = mask
         self.threshSlider.setValue(self.currentMask.binaryThreshold)
@@ -42,7 +38,8 @@ class MaskWidget(QtWidgets.QWidget, Ui_Form):
                 break
         if index >= 0:
             self.maskList.pop(index)
-            self.listWidget.takeItem(index)  # remove row from qlistwidget
+            # self.listWidget.takeItem(index)  # remove row from qlistwidget
+            self.update_listwidget()
 
     def threshold_changed(self, value):
         ''' 拖动slider后的响应函数，更新图片显示 '''
@@ -51,6 +48,7 @@ class MaskWidget(QtWidgets.QWidget, Ui_Form):
         pixmap = self.currentMask.binary_threshold_changed(value)
         pixmap = pixmap.scaled(self.previewLabel.size(), QtCore.Qt.KeepAspectRatio)
         self.previewLabel.setPixmap(pixmap)
+        self.parameterChanged.emit()
 
     def update_pixmap_show(self):
         if self.currentMask:
@@ -68,7 +66,7 @@ class MaskWidget(QtWidgets.QWidget, Ui_Form):
             self.update_listwidget()
             count = self.listWidget.count()
             self.listWidget.setCurrentRow(count-1)
-            print('add new mask')
+            # print('add new mask')
         else:  # 修改, TODO
             pass
         # self.savePatternSignal.emit()

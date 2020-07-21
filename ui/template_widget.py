@@ -6,10 +6,9 @@ from template import Template
 
 class TemplateWidget(QtWidgets.QWidget, Ui_Form):
 
-    # getTemplateSignal = QtCore.pyqtSignal(QtWidgets.QLabel, name='getTemplateSignal')  # 获取模板信号，参数为需要显示的控件
-    # newTemplateShape = QtCore.pyqtSignal(str, str, name='newTemplateShape')  # 请求创建新的template
     savePatternSignal = QtCore.pyqtSignal(name='savePatternSignal')  # 保存pattern
     selectedChanged = QtCore.pyqtSignal(str, str, name='selectedChanged')
+    parameterChanged = QtCore.pyqtSignal(name='parameterChanged')  # 任何程式相关的参数变化后都必须触发该信号告知父类pattern已被修改
 
     def __init__(self):
         ''' Template页面 '''
@@ -21,30 +20,8 @@ class TemplateWidget(QtWidgets.QWidget, Ui_Form):
 
         self.currentTemplate = None
         self.templateList = []
-        # self.getCircleButton.clicked.connect(self.get_template_button_clicked)
         self.saveButton.clicked.connect(self.savePatternSignal)
         self.listWidget.currentRowChanged.connect(self.item_changed)
-
-    # def get_template_button_clicked(self):
-    #     classes = 'template'
-    #     name = ''
-    #     # 最多只能有4个模板
-    #     if len(self.templateList) >= 4:
-    #         QtWidgets.QMessageBox.warning(self, '警告', '最多只能创建4个模板')
-    #         return
-    #     # 按顺序生成一个新的name
-    #     if not self.templateList:
-    #         name = 'template_1'
-    #     else:
-    #         exits_names = [t.name for t in self.templateList]
-    #         for i in range(len(exits_names)+1):
-    #             suffix = str(i+1)
-    #             tname = 'template_' + suffix
-    #             if tname not in exits_names:
-    #                 name = tname
-    #                 break
-    #     # 发送信号到pattern_widget.py，新建模板
-    #     self.newTemplateShape.emit(classes, name)
 
     def set_template(self, template):
         self.currentTemplate = template
@@ -60,7 +37,8 @@ class TemplateWidget(QtWidgets.QWidget, Ui_Form):
                 break
         if index >= 0:
             self.templateList.pop(index)
-            self.listWidget.takeItem(index)  # remove row from qlistwidget
+            # self.listWidget.takeItem(index)  # remove row from qlistwidget
+            self.update_listwidget()
 
     def threshold_changed(self, value):
         ''' 拖动slider后的响应函数，更新图片显示 '''
@@ -69,6 +47,7 @@ class TemplateWidget(QtWidgets.QWidget, Ui_Form):
         # pixmap = self.currentTemplate.binary_threshold_changed(value)
         # pixmap = pixmap.scaled(self.previewLabel.size(), QtCore.Qt.KeepAspectRatio)
         # self.previewLabel.setPixmap(pixmap)
+        self.parameterChanged.emit()
 
     def update_pixmap_show(self):
         if self.currentTemplate:
@@ -86,7 +65,7 @@ class TemplateWidget(QtWidgets.QWidget, Ui_Form):
             self.update_listwidget()
             count = self.listWidget.count()
             self.listWidget.setCurrentRow(count-1)
-            print('add new template')
+            # print('add new template')
         else:  # 修改, TODO
             pass
         # self.savePatternSignal.emit()

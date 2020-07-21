@@ -33,6 +33,9 @@ class PatternWidget(QtWidgets.QWidget):
     '''
     def __init__(self):
         super().__init__()
+
+        # pattern
+        self.pattern = None
         # actions
         self.createAction = new_action('./icon/create-100.png', '新建程式')
         self.saveAction = new_action('./icon/save-64.png', '保存程式')
@@ -61,6 +64,7 @@ class PatternWidget(QtWidgets.QWidget):
         self.maskAction.triggered.connect(self.mode_change_by_action)
         self.createAction.triggered.connect(self.create_pattern)
         self.openAction.triggered.connect(self.load_pattern)
+        self.saveAction.triggered.connect(self.save_pattern)
 
         # init toolbar
         self.toolbar = QtWidgets.QToolBar()
@@ -94,7 +98,7 @@ class PatternWidget(QtWidgets.QWidget):
         self.canvas.newShape.connect(self.new_shape)
         self.canvas.selectionChanged.connect(self.shapeSelectionChanged)
         self.canvas.deleteShape.connect(self.delete_shape)
-
+        self.canvas.shapeMoved.connect(self.change_shape_coordinate)
 
         # TODO:canvas右键弹出菜单内容设定
         # actions_1 = [self.zoomInAction, self.zoomOutAction, self.captureAction]
@@ -116,11 +120,13 @@ class PatternWidget(QtWidgets.QWidget):
         # self.templateWidget.newTemplateShape.connect(self.new_shape)
         self.templateWidget.savePatternSignal.connect(self.save_pattern)
         self.templateWidget.selectedChanged.connect(self.selected_item_changed_from_widget)
+        self.templateWidget.parameterChanged.connect(self.set_pattern_dirty)
         # 第四页：Mask页
         self.maskWidget = MaskWidget()
         # self.maskWidget.getMaskSignal.connect(self.get_mask_action)
         self.maskWidget.savePatternSignal.connect(self.save_pattern)
         self.maskWidget.selectedChanged.connect(self.selected_item_changed_from_widget)
+        self.maskWidget.parameterChanged.connect(self.set_pattern_dirty)
 
         self.rightTopArea = QtWidgets.QTabWidget()
         self.rightTopArea.addTab(self.patternInfoWidget, '程式信息')
@@ -165,6 +171,7 @@ class PatternWidget(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, '错误', '请选择一个文件夹路径')
             return
         self.pattern = Pattern(folder=folder)
+        self.pattern.dirty = True
         self.show_pattern_info()
 
     def load_pattern(self):
@@ -182,9 +189,10 @@ class PatternWidget(QtWidgets.QWidget):
         self.show_pattern_info()
 
         # 加载CV数据
-        cvImage = cv2.imread(imagefile)
+        originCVImage = cv2.imread(imagefile)
         x, y, w, h = self.pattern.ax_pcbs
-        self.canvas.cvImage = cvImage[y:y+h, x:x+w, :].copy()
+        pcbCVImage = originCVImage[y:y+h, x:x+w, :].copy()
+        self.canvas.cvImage = pcbCVImage.copy()
 
         # 加载pixmap，并显示
         orgPixmap = QtGui.QPixmap(imagefile)
@@ -200,7 +208,7 @@ class PatternWidget(QtWidgets.QWidget):
         
         # 模板加载
         for i, template in enumerate(self.pattern.templates):
-            template.load_image(cvImage)
+            template.load_image(pcbCVImage)
             x, y, w, h = template.x, template.y, template.w, template.h
 
             # load shapes
@@ -213,11 +221,10 @@ class PatternWidget(QtWidgets.QWidget):
             # init template widget
             self.templateWidget.templateList.append(template)
 
-
         # 加载Mask
         self.maskWidget.maskList.clear()
         for mask in self.pattern.masks:
-            mask.load_image(cvImage)
+            mask.load_image(pcbCVImage)
             x, y ,w, h = mask.x, mask.y, mask.w, mask.h
 
             shape = Shape(name=mask.name, shape_type='mask')
@@ -235,7 +242,6 @@ class PatternWidget(QtWidgets.QWidget):
         # 更新界面显示
         self.templateWidget.update_listwidget()
         self.maskWidget.update_listwidget()
-
 
         # enable all tabs
         for idx in range(self.rightTopArea.count()):
@@ -282,8 +288,11 @@ class PatternWidget(QtWidgets.QWidget):
         else:
             raise Exception('类型不匹配: ' + classes)
 
+        self.pattern.dirty = True
+
     def delete_shape(self, classes='', name=''):
-        ''' 删除形状,classes为: template,mask,part; name为列表显示的名称 '''
+        ''' 删除形状,在canvas中选中shape后，右键点击删除后触发。
+            classes为: template,mask,part; name为列表显示的名称 '''
         if not self.pattern:
             return
 
@@ -305,13 +314,37 @@ class PatternWidget(QtWidgets.QWidget):
         # 更新界面
         widget.delete_by_name(name)
 
+        self.pattern.dirty = True
+
     def change_shape_coordinate(self, classes='', name=''):
         ''' 拖动形状导致坐标或者大小变换后触发，更新pattern参数及界面显示 '''
         if not self.pattern:
             return
         # step1: get coordinate
-        # step2: update pattern
-        # step3: update widget by name
+        shape = self.canvas.hShape
+        rectangle = shape.getRectFromLine(*shape.points).toRect()
+        x, y, w, h = rectangle.x(), rectangle.y(), rectangle.width(), rectangle.height()
+        pixmap = self.canvas.pixmap.copy(rectangle)
+        # step2: update pattern and widget show
+        if classes == 'location':
+            self.pattern.set_pcb_coordinate(x, y, w, h)
+            self.locationWidget.set_pixmap(self.locationWidget.pcbLabel, pixmap)
+        elif classes == 'template':
+            template = [t for t in self.pattern.templates if t.name == name][0]
+            template.coordinates_changed(x, y, w, h, self.pattern.pcbCVImage)
+            self.templateWidget.update_pixmap_show()
+        elif classes == 'mask':
+            mask = [m for m in self.pattern.masks if m.name == name][0]
+            mask.coordinates_changed(x, y, w, h, self.pattern.pcbCVImage)
+            self.maskWidget.update_pixmap_show()
+        elif classes == 'part':
+            part = [p for p in self.pattern.parts if p.name == name][0]
+            part.coordinates_changed(x, y, w, h, self.pattern.pcbCVImage)
+            # TODO
+        else:
+            raise Exception('类型不匹配: ' + classes)
+
+        self.pattern.dirty = True
 
     def change_shape_parameter(self, classes='', name=''):
         ''' 界面中更改相关参数后触发 '''
@@ -319,6 +352,7 @@ class PatternWidget(QtWidgets.QWidget):
             return
         # step1: get parameter
         # step2: update pattern
+        self.pattern.dirty = True
 
     def seleted_shape_changed_from_canvas(self, shapes):
         if not shapes:
@@ -340,12 +374,13 @@ class PatternWidget(QtWidgets.QWidget):
                     self.canvas.hShape.selected = False
                     self.canvas.hShape.highlightClear()
                 shape.selected = True
+                self.shapeSelectionChanged([shape])
                 self.canvas.hShape = shape
                 self.canvas.update()
                 break
 
     def has_pattern_and_pixmap(self):
-        if not hasattr(self, 'pattern') or not self.pattern.folder:
+        if not self.pattern:
             QtWidgets.QMessageBox.information(self, '提示', '请先创建或者载入程式')
             return False
         if not self.canvas.pixmap:
@@ -354,7 +389,7 @@ class PatternWidget(QtWidgets.QWidget):
         return True
 
     def show_pattern_info(self):
-        if not hasattr(self, 'pattern'):
+        if not self.pattern:
             return
         self.rightTopArea.setTabEnabled(0, True)
         self.rightTopArea.setCurrentWidget(self.patternInfoWidget)
@@ -395,8 +430,13 @@ class PatternWidget(QtWidgets.QWidget):
         self.canvas.setEditing(False)
         self.canvas.update()
 
+    def set_pattern_dirty(self):
+        ''' 在mask_widget、template_widget及part_widget中，通过引用修改了pattern内部相关阈值参数，
+            需要发射信号告知当前类pattern信息已经更改，避免用户直接点击退出导致pattern的改变未保存 '''
+        self.pattern.dirty = True
+
     def save_pcb_base_infomation(self):
-        if not hasattr(self, 'pattern'):
+        if not self.pattern:
             return
         if not self.pattern.ax_pcbs:
             QtWidgets.QMessageBox.information(self, '提示', '请先获取PCB板')
@@ -415,7 +455,7 @@ class PatternWidget(QtWidgets.QWidget):
             此外，本函数还负责保存截取区域的坐标参数，作为程式的基础信息并保存 '''
         if not self.canvas.pixmap:
             raise Exception('请先获取图像')
-        if not hasattr(self, 'pattern'):
+        if not self.pattern:
             raise Exception('请先创建程式')
         # shapeList = self.canvas.modeToShapeList[self.canvas.createMode]
         shape = self.canvas.shapes[-1]
@@ -430,17 +470,19 @@ class PatternWidget(QtWidgets.QWidget):
 
     def save_pattern(self):
         ''' 保存pattern信息；位置信息均来自canvas里面的shapes '''
-        if not hasattr(self, 'pattern'):
+        if not self.pattern:
             return
         if not self.pattern.ax_pcbs:
             print('error: location pcb first')
             return
         self.pattern.save()
+        self.pattern.dirty = False
 
     # React to canvas signals.
     def shapeSelectionChanged(self, selected_shapes):
         for shape in self.canvas.selectedShapes:
             shape.selected = False
+            shape.highlightClear()
         # self.labelList.clearSelection()
         self.canvas.selectedShapes = selected_shapes
         for shape in self.canvas.selectedShapes:
